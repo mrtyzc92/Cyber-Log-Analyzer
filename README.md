@@ -14,7 +14,7 @@ Bu projenin teknik hedefleri:
 
 ## Proje durumu
 
-Proje geliştirme aşamasındadır. Şu anda temel klasör mimarisi ve geliştirme ortamı hazırlanmaktadır.
+Projenin temel klasör mimarisi, Python geliştirme ortamı ve Git/GitHub bağlantısı hazırlanmıştır. Sıradaki aşama, uygulamanın ilk işlevsel bileşenlerini geliştirmektir.
 
 ## Temel veri akışı
 
