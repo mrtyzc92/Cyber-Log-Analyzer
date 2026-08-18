@@ -27,6 +27,7 @@ dist/
 
 # Raw and generated project data
 data/raw/*
+!data/raw/sample.log
 data/processed/*
 
 # Keep the empty data directories in Git
