@@ -10,5 +10,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
