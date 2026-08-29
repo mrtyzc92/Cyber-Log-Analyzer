@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Security log analysis application built for learning professional Python development."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [ "Flask>=3.1,<4.0",
+]
 
 [project.optional-dependencies]
 dev = [
