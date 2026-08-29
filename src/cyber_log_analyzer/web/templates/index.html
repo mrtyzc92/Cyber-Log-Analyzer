@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Ana Sayfa - Cyber Log Analyzer{% endblock %}
+
+{% block content %}
+<section>
+    <h2>Güvenlik loglarını analiz edin</h2>
+
+    <p>
+        Cyber Log Analyzer, log kayıtlarındaki başarısız giriş
+        denemelerini tespit eder ve sonuçları okunabilir bir
+        güvenlik raporuna dönüştürür.
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+        <div>
+            <label for="log-file">Log dosyası</label>
+            <input
+                id="log-file"
+                name="log_file"
+                type="file"
+                accept=".log,.txt"
+                required
+            >
+        </div>
+
+        <div>
+            <label for="threshold">Şüpheli giriş eşiği</label>
+            <input
+                id="threshold"
+                name="threshold"
+                type="number"
+                min="1"
+                value="{{ threshold }}"
+                required
+            >
+        </div>
+
+        <button type="submit">Analiz et</button>
+    </form>
+</section>
+
+{% if error %}
+<section role="alert">
+    <h2>Hata</h2>
+    <p>{{ error }}</p>
+</section>
+{% endif %}
+
+{% if report %}
+<section>
+    <h2>Analiz sonucu</h2>
+    <pre>{{ report }}</pre>
+</section>
+{% endif %}
+{% endblock %}
