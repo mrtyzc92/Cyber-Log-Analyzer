@@ -172,3 +172,13 @@ def test_index_rejects_file_above_size_limit():
     assert response.status_code == 413
     assert "<h2>Dosya çok büyük</h2>" in html
     assert "1 MB veya daha küçük bir log dosyası seçin." in html
+
+def test_stylesheet_is_available():
+    app = create_app({"TESTING": True})
+    client = app.test_client()
+
+    response = client.get("/static/css/styles.css")
+    stylesheet = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "background-color" in stylesheet
