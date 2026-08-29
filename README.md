@@ -204,7 +204,7 @@ Test takımı şu bileşenleri kapsar:
 - Hatalı alan sayısı
 - Hatalı tarih biçimi
 
-Mevcut test takımında 13 otomatik test bulunmaktadır.
+Mevcut test takımında 22 otomatik test bulunmaktadır.
 
 ## Hata yönetimi
 
@@ -246,3 +246,24 @@ Mevcut uygulama:
 - Otomatik testlerle doğrulanabiliyor
 
 Proje şu anda komut satırından örnek log dosyasını ve varsayılan eşik değerini kullanarak çalışmaktadır.
+
+## Flask web arayüzü
+
+Proje, güvenlik loglarını tarayıcı üzerinden analiz etmek için Flask tabanlı bir web arayüzü içerir.
+
+Web arayüzü şu işlemleri gerçekleştirir:
+
+- `.log` ve `.txt` dosyalarını kabul eder.
+- Kullanıcıdan şüpheli giriş denemesi eşik değerini alır.
+- Yüklenen dosyayı geçici bir çalışma alanında işler.
+- Mevcut log okuma, ayrıştırma, analiz ve raporlama bileşenlerini yeniden kullanır.
+- Analiz sonucunu HTML sayfasında gösterir.
+- Geçersiz dosya uzantısı, eksik dosya, hatalı eşik ve bozuk log içeriği için kontrollü hata mesajları üretir.
+- En fazla 1 MB boyutunda dosya yüklenmesine izin verir.
+
+### Geliştirme bağımlılıklarını kurma
+
+Sanal ortam aktifken proje ana klasöründe:
+
+```powershell
+python -m pip install -e ".[dev]"
