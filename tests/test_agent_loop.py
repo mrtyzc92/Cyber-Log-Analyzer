@@ -1,3 +1,4 @@
+import pytest
 from cyber_log_analyzer.agents.decisions import AgentAction, AgentDecision
 from cyber_log_analyzer.agents.loop import AgentLoop
 from cyber_log_analyzer.agents.registry import ToolRegistry
@@ -163,3 +164,30 @@ def test_agent_loop_stops_at_step_limit():
     ]
     assert state.result is None
     assert state.error == "Agent step limit reached"
+
+def test_agent_loop_rejects_invalid_step_limit():
+    registry = ToolRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max_steps must be greater than zero",
+    ):
+        AgentLoop(
+            registry=registry,
+            decision_maker=CompleteImmediately(),
+            max_steps=0,
+        )
+
+def test_agent_loop_rejects_empty_goal():
+    registry = ToolRegistry()
+
+    loop = AgentLoop(
+        registry=registry,
+        decision_maker=CompleteImmediately(),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="goal must not be empty",
+    ):
+        loop.run(goal="   ")

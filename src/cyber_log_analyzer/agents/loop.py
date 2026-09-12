@@ -22,11 +22,19 @@ class AgentLoop:
         decision_maker: DecisionMaker,
         max_steps: int = 5,
     ) -> None:
+        if max_steps <= 0:
+            raise ValueError(
+                "max_steps must be greater than zero"
+            )
+
         self.decision_maker = decision_maker
         self.selector = ToolSelector(registry)
         self.max_steps = max_steps
 
     def run(self, goal: str) -> AgentState:
+        if not goal.strip():
+            raise ValueError("goal must not be empty")
+
         state = AgentState(
             goal=goal,
             max_steps=self.max_steps,
