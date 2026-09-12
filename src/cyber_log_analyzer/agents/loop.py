@@ -20,12 +20,17 @@ class AgentLoop:
         self,
         registry: ToolRegistry,
         decision_maker: DecisionMaker,
+        max_steps: int = 5,
     ) -> None:
         self.decision_maker = decision_maker
         self.selector = ToolSelector(registry)
+        self.max_steps = max_steps
 
     def run(self, goal: str) -> AgentState:
-        state = AgentState(goal=goal)
+        state = AgentState(
+            goal=goal,
+            max_steps=self.max_steps,
+        )
 
         while True:
             decision = self.decision_maker.decide(state)
@@ -43,7 +48,10 @@ class AgentLoop:
                 state.fail(decision.reason)
                 return state
 
-            state.begin_step()
+            try:
+                state.begin_step()
+            except RuntimeError:
+                return state
 
             tool = self.selector.select(decision)
             tool_result = tool.run(decision.tool_input or "")

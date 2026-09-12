@@ -132,3 +132,34 @@ def test_agent_loop_stops_when_tool_fails():
     assert state.observations == ["Log analysis failed"]
     assert state.result is None
     assert state.error == "Log file not found"
+
+class AlwaysUseTool:
+    def decide(self, state: AgentState) -> AgentDecision:
+        return AgentDecision(
+            action=AgentAction.USE_TOOL,
+            reason="Continue using the tool",
+            tool_name="echo",
+            tool_input="Repeated observation",
+        )
+
+
+def test_agent_loop_stops_at_step_limit():
+    registry = ToolRegistry()
+    registry.register(EchoTool())
+
+    loop = AgentLoop(
+        registry=registry,
+        decision_maker=AlwaysUseTool(),
+        max_steps=2,
+    )
+
+    state = loop.run(goal="Keep checking the security log")
+
+    assert state.status is AgentStatus.FAILED
+    assert state.current_step == 2
+    assert state.observations == [
+        "Repeated observation",
+        "Repeated observation",
+    ]
+    assert state.result is None
+    assert state.error == "Agent step limit reached"
