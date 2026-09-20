@@ -57,6 +57,8 @@ def test_index_analyzes_uploaded_log_file():
     assert response.status_code == 200
     assert "Analiz sonucu" in html
     assert "192.168.1.25: 3 başarısız giriş" in html
+    assert "Agent iş akışı tamamlandı" in html
+    assert "Tool adımı: 1" in html
 
 
 def test_index_rejects_unsupported_file_extension():

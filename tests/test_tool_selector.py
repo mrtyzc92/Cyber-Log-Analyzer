@@ -31,6 +31,7 @@ def test_tool_selector_selects_tool_from_decision():
 
     assert selector.select(decision) is tool
 
+
 def test_tool_selector_rejects_non_tool_decision():
     registry = ToolRegistry()
     selector = ToolSelector(registry)
@@ -46,17 +47,18 @@ def test_tool_selector_rejects_non_tool_decision():
     ):
         selector.select(decision)
 
-def test_tool_selector_requires_tool_name():
-        registry = ToolRegistry()
-        selector = ToolSelector(registry)
 
-        decision = AgentDecision(
+def test_tool_selector_requires_tool_name():
+    registry = ToolRegistry()
+    selector = ToolSelector(registry)
+
+    decision = AgentDecision(
         action=AgentAction.USE_TOOL,
         reason="A tool must be used",
     )
 
-        with pytest.raises(
+    with pytest.raises(
         ValueError,
         match="Tool decision requires a tool name",
     ):
-         selector.select(decision)
+        selector.select(decision)

@@ -51,3 +51,16 @@ def test_log_analyzer_tool_returns_failure_for_malformed_log(tmp_path):
     assert result.success is False
     assert result.observation == "Log analysis failed"
     assert result.error is not None
+
+
+def test_log_analyzer_tool_returns_failure_for_non_utf8_log(tmp_path):
+    non_utf8_log_file = tmp_path / "non-utf8.log"
+    non_utf8_log_file.write_bytes(b"\xff\xfe\x00")
+    tool = LogAnalyzerTool(threshold=3)
+
+    result = tool.run(str(non_utf8_log_file))
+
+    assert result.tool_name == "log_analyzer"
+    assert result.success is False
+    assert result.observation == "Log analysis failed"
+    assert result.error is not None

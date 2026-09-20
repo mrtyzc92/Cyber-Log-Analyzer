@@ -3,7 +3,10 @@ from tempfile import TemporaryDirectory
 
 from flask import Blueprint, render_template, request
 
-from cyber_log_analyzer.main import analyze_log_file
+from cyber_log_analyzer.agents.security_log_workflow import (
+    run_security_log_agent,
+)
+from cyber_log_analyzer.agents.state import AgentStatus
 
 
 main_blueprint = Blueprint(
@@ -18,6 +21,7 @@ def index() -> str:
 
     report: str | None = None
     error: str | None = None
+    agent_step_count: int | None = None
     threshold = 3
 
     if request.method == "POST":
@@ -48,12 +52,15 @@ def index() -> str:
                     log_path = Path(temp_directory) / "uploaded.log"
                     uploaded_file.save(log_path)
 
-                    try:
-                        report = analyze_log_file(
-                            log_path,
-                            threshold=threshold,
-                        )
-                    except (UnicodeDecodeError, ValueError):
+                    state = run_security_log_agent(
+                        log_path,
+                        threshold=threshold,
+                    )
+
+                    if state.status is AgentStatus.COMPLETED:
+                        report = state.result
+                        agent_step_count = state.current_step
+                    else:
                         error = (
                             "Log dosyası UTF-8 biçiminde ve "
                             "beklenen kayıt yapısında olmalıdır."
@@ -64,4 +71,5 @@ def index() -> str:
         report=report,
         error=error,
         threshold=threshold,
+        agent_step_count=agent_step_count,
     )

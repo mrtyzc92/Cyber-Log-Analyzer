@@ -50,6 +50,10 @@
 {% if report %}
 <section>
     <h2>Analiz sonucu</h2>
+    <p>
+        Agent iş akışı tamamlandı.
+        Tool adımı: {{ agent_step_count }}
+    </p>
     <pre>{{ report }}</pre>
 </section>
 {% endif %}

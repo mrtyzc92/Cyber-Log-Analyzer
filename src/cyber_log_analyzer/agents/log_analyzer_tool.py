@@ -11,20 +11,24 @@ class LogAnalyzerTool(AgentTool):
         self.threshold = threshold
 
     def run(self, tool_input: str) -> ToolResult:
-            try:
-             report = analyze_log_file(
+        try:
+            report = analyze_log_file(
                 tool_input,
                 threshold=self.threshold,
             )
-            except (FileNotFoundError, ValueError) as error:
-             return ToolResult(
+        except (
+            FileNotFoundError,
+            UnicodeDecodeError,
+            ValueError,
+        ) as error:
+            return ToolResult(
                 tool_name=self.name,
                 success=False,
                 observation="Log analysis failed",
                 error=str(error),
             )
 
-            return ToolResult(
+        return ToolResult(
             tool_name=self.name,
             success=True,
             observation=report,

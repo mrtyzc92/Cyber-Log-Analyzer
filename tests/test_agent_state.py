@@ -46,14 +46,14 @@ def test_agent_state_rejects_step_above_limit():
     assert state.error == "Agent step limit reached"
 
 def test_agent_state_completes_with_result():
-         state = AgentState(goal="Analyze the security log")
-         state.begin_step()
+    state = AgentState(goal="Analyze the security log")
+    state.begin_step()
 
-         state.complete("Security report created")
+    state.complete("Security report created")
 
-         assert state.status is AgentStatus.COMPLETED
-         assert state.result == "Security report created"
-         assert state.error is None
+    assert state.status is AgentStatus.COMPLETED
+    assert state.result == "Security report created"
+    assert state.error is None
 
 def test_agent_state_fails_with_error():
     state = AgentState(goal="Analyze the security log")

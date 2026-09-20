@@ -1,25 +1,29 @@
 # Cyber Log Analyzer
 
-Cyber Log Analyzer, güvenlik loglarını okuyup ayrıştıran, başarısız giriş denemelerini analiz eden ve sonuçları okunabilir bir rapora dönüştüren öğretici bir Python projesidir.
+Cyber Log Analyzer, güvenlik loglarını okuyup ayrıştıran, başarısız giriş
+denemelerini analiz eden ve sonucu hem komut satırı hem Flask arayüzü üzerinden
+sunan öğretici bir Python projesidir.
 
-Proje; profesyonel Python proje yapısını, sorumlulukların ayrılmasını, hata yönetimini, otomatik testleri ve Git/GitHub çalışma düzenini gerçek bir uygulama üzerinden öğrenmek amacıyla geliştirilmektedir.
+Sürüm 2.0 ile proje, klasik veri işleme hattının üzerine test edilmiş ve
+guardrail'lerle sınırlandırılmış deterministik bir agent mimarisi ekler.
 
-## Projenin amacı
+## Neler yapar?
 
-Bu projenin teknik hedefleri:
-
-- Profesyonel Python proje mimarisini uygulamak
-- Log dosyalarını güvenli şekilde okumak
-- Ham log satırlarını yapılandırılmış Python nesnelerine dönüştürmek
-- Güvenlik olaylarını kural tabanlı olarak analiz etmek
-- Şüpheli başarısız giriş denemelerini tespit etmek
-- Analiz sonuçlarını okunabilir metin raporlarına dönüştürmek
-- Unit test ve integration test yazmak
-- Git ve GitHub çalışma düzenini uygulamak
+- UTF-8 `.log` ve `.txt` dosyalarını okur.
+- Log satırlarını immutable `LogEntry` nesnelerine dönüştürür.
+- `LOGIN_FAILED` olaylarını IP adresine göre sayar.
+- Belirlenen eşiğe ulaşan IP adreslerini raporlar.
+- Aynı analiz hattını CLI, Flask ve agent tool üzerinden yeniden kullanır.
+- Tool seçimini registry ve selector üzerinden sınırlar.
+- Agent çalışmalarını adım limiti ve terminal durumlarla kontrol eder.
+- Ham model JSON'unu doğrulanmış `AgentDecision` nesnesine dönüştürür.
+- LLM kararlarını tool allowlist'i ile sınırlar ve hatalarda güvenli biçimde
+  `FAIL` kararı üretir.
+- Sınırlı in-memory geçmiş ve temel decision eval altyapısı sağlar.
 
 ## Desteklenen log biçimi
 
-Her log satırı beş alandan oluşur:
+Her satır beş alandan oluşur:
 
 ```text
 timestamp | level | ip_address | event | username
@@ -31,239 +35,222 @@ timestamp | level | ip_address | event | username
 2026-08-18 09:12:42 | WARNING | 192.168.1.25 | LOGIN_FAILED | admin
 ```
 
-Tarih ve saat biçimi:
+Tarih biçimi `%Y-%m-%d %H:%M:%S` olmalıdır.
 
-```text
-%Y-%m-%d %H:%M:%S
-```
+## Mimari
 
-Örnek:
-
-```text
-2026-08-18 09:12:42
-```
-
-## Uygulama veri akışı
+Klasik analiz hattı:
 
 ```text
 Log dosyası
-    |
-    v
-Reader
-    |
-    v
-Parser
-    |
-    v
-LogEntry modeli
-    |
-    v
-Security Analyzer
-    |
-    v
-Text Reporter
-    |
-    v
-Okunabilir güvenlik raporu
+    -> File Reader
+    -> Log Parser
+    -> LogEntry
+    -> Security Analyzer
+    -> Text Reporter
 ```
 
-Bileşenlerin sorumlulukları:
+Web arayüzündeki agent hattı:
 
-- `file_reader.py`: UTF-8 log dosyasını okur, boş satırları atlar.
-- `log_parser.py`: Ham metin satırlarını `LogEntry` nesnelerine dönüştürür.
-- `log_entry.py`: Tek bir log kaydının veri modelini tanımlar.
-- `security_analyzer.py`: Başarısız girişleri IP adresine göre sayar ve eşik değerini aşanları bulur.
-- `text_reporter.py`: Analiz sonucunu okunabilir metne dönüştürür.
-- `main.py`: Bütün bileşenleri doğru sırayla çalıştırır.
+```text
+Dosya yükleme
+    -> SecurityLogDecisionMaker
+    -> AgentLoop
+    -> ToolRegistry / ToolSelector
+    -> LogAnalyzerTool
+    -> AgentState
+    -> HTML sonucu
+```
+
+LLM karar sınırı:
+
+```text
+LanguageModel.generate(prompt)
+    -> ham metin
+    -> JSON şema doğrulaması
+    -> tool allowlist kontrolü
+    -> AgentDecision
+    -> AgentLoop
+```
+
+Model hiçbir zaman registry veya tool nesnelerine doğrudan erişmez. Model
+yalnızca karar metni üretir; yetki ve doğrulama uygulama tarafında kalır.
+
+Ayrıntılı açıklama için
+[`docs/agent-mimarisi.md`](docs/agent-mimarisi.md) dosyasına bakın.
+
+## Structured Output sözleşmesi
+
+Desteklenen action değerleri:
+
+- `use_tool`: Kayıtlı bir tool çalıştırılmasını ister.
+- `complete`: Çalışmayı başarıyla tamamlar.
+- `fail`: Çalışmayı kontrollü biçimde başarısız sonlandırır.
+
+Tool kararı örneği:
+
+```json
+{
+  "action": "use_tool",
+  "reason": "The security log must be analyzed",
+  "tool_name": "log_analyzer",
+  "tool_input": "security.log"
+}
+```
+
+Parser; geçersiz JSON'u, bilinmeyen action değerini, eksik alanları,
+beklenmeyen alanları ve action ile uyumsuz tool alanlarını reddeder.
+
+## LLM entegrasyon sınırı
+
+`LLMDecisionMaker`, sağlayıcıdan bağımsız bir `LanguageModel` protokolü kullanır:
+
+```python
+class LanguageModel(Protocol):
+    def generate(self, prompt: str) -> str:
+        ...
+```
+
+Projede bilinçli olarak haricî LLM SDK'sı, API anahtarı veya varsayılan ağ
+istemcisi bulunmaz. Gerçek bir sağlayıcı kullanılacaksa bu protokolü uygulayan
+adapter enjekte edilir. Böylece agent çekirdeği belirli bir sağlayıcıya
+bağlanmaz ve testlerde sahte model kullanılabilir.
+
+Flask arayüzü deterministik `SecurityLogDecisionMaker` kullanır. Dosya analizi
+gibi kuralları belli bir iş için LLM çağrısı zorunlu değildir.
+
+## Memory ve evals
+
+İki farklı bellek türü ayrılmıştır:
+
+- `AgentState.observations`: Tek çalışma içindeki kısa süreli çalışma belleği.
+- `AgentMemory`: Tamamlanmış çalışmaların sabit kapasiteli özet geçmişi.
+
+`AgentMemory` process belleğindedir; uygulama yeniden başladığında silinir.
+Kalıcı veritabanı, embedding veya RAG bu eğitim projesinin kapsamına dahil
+değildir.
+
+Decision eval altyapısı action ve tool seçimini ölçer. Rapor; toplam vaka,
+başarılı vaka, accuracy ve vaka bazlı hata açıklamalarını içerir.
 
 ## Proje yapısı
 
 ```text
-Cyber-Log-Analyzer/
-├── config/
-├── data/
-│   ├── processed/
-│   └── raw/
-│       └── sample.log
-├── docs/
-│   └── git-notlari.md
-├── src/
-│   └── cyber_log_analyzer/
-│       ├── analyzers/
-│       │   └── security_analyzer.py
-│       ├── models/
-│       │   └── log_entry.py
-│       ├── parsers/
-│       │   └── log_parser.py
-│       ├── readers/
-│       │   └── file_reader.py
-│       ├── reporters/
-│       │   └── text_reporter.py
-│       └── main.py
-├── tests/
-│   ├── test_file_reader.py
-│   ├── test_log_parser.py
-│   ├── test_main.py
-│   ├── test_security_analyzer.py
-│   └── test_text_reporter.py
-├── .gitignore
-├── pyproject.toml
-└── README.md
+src/cyber_log_analyzer/
+├── agents/
+│   ├── decision_parser.py
+│   ├── decisions.py
+│   ├── evals.py
+│   ├── llm_decision_maker.py
+│   ├── log_analyzer_tool.py
+│   ├── loop.py
+│   ├── memory.py
+│   ├── registry.py
+│   ├── security_log_agent.py
+│   ├── security_log_workflow.py
+│   ├── state.py
+│   ├── tool_selector.py
+│   └── tools.py
+├── analyzers/
+├── models/
+├── parsers/
+├── readers/
+├── reporters/
+├── web/
+└── main.py
 ```
 
-## Gereksinimler
+## Kurulum
+
+Gereksinimler:
 
 - Python 3.13 veya daha yeni bir sürüm
 - Git
 
-## Kurulum
-
-Projeyi klonlayın:
+PowerShell:
 
 ```powershell
 git clone https://github.com/mrtyzc92/Cyber-Log-Analyzer.git
 cd Cyber-Log-Analyzer
-```
-
-Python 3.13 ile sanal ortam oluşturun:
-
-```powershell
 py -3.13 -m venv .venv
-```
-
-PowerShell üzerinde sanal ortamı etkinleştirin:
-
-```powershell
 .\.venv\Scripts\Activate.ps1
-```
-
-Uygulamayı ve geliştirme bağımlılıklarını editable mode ile kurun:
-
-```powershell
 python -m pip install -e ".[dev]"
 ```
 
-## Uygulamayı çalıştırma
+## Çalıştırma
 
-Proje ana klasöründe:
+CLI:
 
 ```powershell
 python -m cyber_log_analyzer.main
 ```
 
-Örnek çıktı:
-
-```text
-Şüpheli giriş denemeleri:
-- 192.168.1.25: 3 başarısız giriş
-```
-
-## Şüpheli giriş tespiti
-
-Uygulama yalnızca `LOGIN_FAILED` olaylarını sayar.
-
-Varsayılan eşik değeri:
-
-```text
-3
-```
-
-Bir IP adresinin başarısız giriş sayısı eşik değerine eşit veya eşikten büyükse IP şüpheli olarak raporlanır.
-
-Örnek analiz sonucu:
-
-```python
-{
-    "192.168.1.25": 3,
-}
-```
-
-Eşiği geçen IP bulunmazsa:
-
-```text
-Şüpheli giriş denemesi bulunamadı.
-```
-
-## Testleri çalıştırma
-
-Bütün testleri çalıştırmak için:
+Flask web arayüzü:
 
 ```powershell
-python -m pytest -v
+python -m flask --app cyber_log_analyzer.web:create_app run --debug
 ```
 
-Test takımı şu bileşenleri kapsar:
+Ardından terminalde gösterilen yerel adresi tarayıcıda açın.
 
-- Dosya okuyucu
-- Log ayrıştırıcı
-- Veri modeli
-- Güvenlik analiz kuralları
-- Metin raporu
-- Uçtan uca uygulama veri akışı
-- Hatalı dosya yolu
-- Hatalı alan sayısı
-- Hatalı tarih biçimi
+## Testler
 
-Mevcut test takımında 22 otomatik test bulunmaktadır.
-
-## Hata yönetimi
-
-Uygulama bazı hatalı durumları bilinçli olarak reddeder:
-
-- Log dosyası bulunamazsa `FileNotFoundError`
-- Log satırında beş alan yoksa `ValueError`
-- Tarih biçimi beklenen biçime uymuyorsa `ValueError`
-
-Bu davranışlar otomatik testlerle doğrulanmaktadır.
-
-## Kullanılan temel kavramlar
-
-- `pathlib.Path`
-- Type hints
-- Dataclasses
-- Immutable data models
-- List comprehensions
-- Dictionary comprehensions
-- `collections.Counter`
-- Exception handling
-- Unit testing
-- Integration testing
-- Editable installation
-- Git staging, commit ve push akışı
-
-## Proje durumu
-
-Projenin temel çalışan sürümü tamamlanmıştır.
-
-Mevcut uygulama:
-
-- Log dosyasını okuyabiliyor
-- Ham satırları `LogEntry` nesnelerine dönüştürebiliyor
-- Başarısız girişleri IP adresine göre sayabiliyor
-- Belirlenen eşiği geçen IP adreslerini tespit edebiliyor
-- Sonucu okunabilir metin raporu olarak gösterebiliyor
-- Temel hata durumlarını yönetebiliyor
-- Otomatik testlerle doğrulanabiliyor
-
-Proje şu anda komut satırından örnek log dosyasını ve varsayılan eşik değerini kullanarak çalışmaktadır.
-
-## Flask web arayüzü
-
-Proje, güvenlik loglarını tarayıcı üzerinden analiz etmek için Flask tabanlı bir web arayüzü içerir.
-
-Web arayüzü şu işlemleri gerçekleştirir:
-
-- `.log` ve `.txt` dosyalarını kabul eder.
-- Kullanıcıdan şüpheli giriş denemesi eşik değerini alır.
-- Yüklenen dosyayı geçici bir çalışma alanında işler.
-- Mevcut log okuma, ayrıştırma, analiz ve raporlama bileşenlerini yeniden kullanır.
-- Analiz sonucunu HTML sayfasında gösterir.
-- Geçersiz dosya uzantısı, eksik dosya, hatalı eşik ve bozuk log içeriği için kontrollü hata mesajları üretir.
-- En fazla 1 MB boyutunda dosya yüklenmesine izin verir.
-
-### Geliştirme bağımlılıklarını kurma
-
-Sanal ortam aktifken proje ana klasöründe:
+Tüm test takımını çalıştırmak için:
 
 ```powershell
-python -m pip install -e ".[dev]"
+python -m pytest -q
+```
+
+Sürüm 2.0 kapanışında test takımı 83 test içerir. Kapsanan başlıca alanlar:
+
+- dosya okuma, parsing, analiz ve raporlama,
+- CLI ve Flask entegrasyonu,
+- agent state ve terminal durumlar,
+- tool sonucu, registry ve selector,
+- multi-step loop ve adım limiti,
+- structured output doğrulaması,
+- LLM hata ve allowlist guardrail'leri,
+- sınırlı memory,
+- decision eval raporları,
+- web arayüzünün agent loop entegrasyonu.
+
+## Hata yönetimi ve guardrail'ler
+
+Proje aşağıdaki durumları kontrollü biçimde ele alır:
+
+- bulunamayan dosya,
+- UTF-8 olmayan içerik,
+- bozuk log satırı,
+- geçersiz eşik,
+- desteklenmeyen dosya uzantısı,
+- 1 MB üzerindeki web yüklemesi,
+- boş agent hedefi,
+- geçersiz veya aşılmış adım limiti,
+- kayıtlı olmayan tool seçimi,
+- tool çalışma hatası,
+- geçersiz model JSON'u,
+- bilinmeyen model action'ı,
+- allowlist dışında tool seçimi,
+- model sağlayıcı hatası.
+
+## Kapsam sınırı
+
+Cyber Log Analyzer bir eğitim projesidir. Temel agent mimarisini, güvenli tool
+çalıştırmayı, structured output'u, memory ve eval prensiplerini öğretmek için
+tasarlanmıştır. İleri RAG, kalıcı vektör bellek, gerçek multi-agent koordinasyonu
+ve geniş ölçekli OSINT otomasyonu ayrı bitirme projesinin konularıdır.
+
+## Sürüm durumu
+
+`2.0.0` kapsamı aşağıdaki öğrenme aşamalarını tek bir çalışan sistemde
+birleştirir:
+
+- modüler Python ve Flask mimarisi,
+- test odaklı geliştirme,
+- deterministik agent çekirdeği,
+- tool registry ve selection,
+- multi-step loop ve stop conditions,
+- structured output,
+- kontrollü LLM decision maker,
+- temel memory ve evals,
+- agent destekli web iş akışı.

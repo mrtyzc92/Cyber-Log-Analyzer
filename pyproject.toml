@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cyber-log-analyzer"
-version = "0.2.0"
-description = "Security log analysis application built for learning professional Python development."
+version = "2.0.0"
+description = "Tested security log analyzer with a guarded agent architecture."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [ "Flask>=3.1,<4.0",
+dependencies = [
+    "Flask>=3.1,<4.0",
 ]
 
 [project.optional-dependencies]
